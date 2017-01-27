@@ -11,6 +11,7 @@ def printHelp():
     print("Параметры запуска скрипта " + os.path.basename(__file__) + ":\n"
             "-publist= - параметр вывода списка дат публикаций;\n"
             "-pubyear= - параметр сохранения файлов за конкретный год публикации;\n"
+            "-search= - параметр указывает, по какому поисковому запросу загружать документы;\n"
             "-folder= - опциональный параметр, указывающий директорию, в которую необходимо сохранять данные;\n"
             "-h, -help= - вызов справки."
             "Например: python " + os.path.basename(__file__) + " -year=1937 -folder='/home/user/data_cia/'\n"
@@ -39,9 +40,12 @@ if params.get("folder") == None:
     params["folder"] = "data"
 parser = ciap(params["folder"], params.get("logfile"))
 
-if params.get("publist") != None:
-    parser.ParseYearsList()
+if params.get("search") != None:
+    parser.SearchDownloader(params["search"])
 else:
-    if params.get("pubyear") == None:
-        params["pubyear"] = "0"
-    parser.ParsePublicatonYear(params["pubyear"])
+    if params.get("publist") != None:
+        parser.ParseYearsList()
+    else:
+        if params.get("pubyear") == None:
+            params["pubyear"] = "0"
+        parser.ParsePublicatonYear(params["pubyear"])

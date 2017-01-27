@@ -27,7 +27,8 @@ class document:
 class ciap:
     _link_list = "https://www.cia.gov/library/readingroom/search/site/"
     _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_pub_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
-    _link_search = "https://www.cia.gov/library/readingroom/advanced-search-view?keyword={0}&im_field_collection[]=&label={1}&sm_field_document_number={2}&sm_field_original_classification={3}&dm_field_pub_date_op={4}%3D&dm_field_pub_date[value]={5}&dm_field_pub_date[min]=&dm_field_pub_date[max]=&sm_field_content_type={6}&sm_field_case_number={7}"
+    _link_search = "https://www.cia.gov/library/readingroom/search/site/{0}"
+    _link_advanced_search = "https://www.cia.gov/library/readingroom/advanced-search-view?keyword={0}&im_field_collection[]=&label={1}&sm_field_document_number={2}&sm_field_original_classification={3}&dm_field_pub_date_op={4}%3D&dm_field_pub_date[value]={5}&dm_field_pub_date[min]=&dm_field_pub_date[max]=&sm_field_content_type={6}&sm_field_case_number={7}"
     #_link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
     _folder = ""
     _items = {}
@@ -51,6 +52,7 @@ class ciap:
         Метод читает содержимое страницы по ссылке.
         :rtype: str
         """
+
         try:
             req = request.Request(url)
             opener = request.build_opener()
@@ -66,6 +68,7 @@ class ciap:
             Выводит на экран и записывает в файл список дат публикаций.
         :return: Список дат публикаций.
         """
+
         try:
             Log.i("Получение списка дат публикаций...")
             content = self.readContent(self._link_list)
@@ -92,6 +95,7 @@ class ciap:
         :param url_main: ссылка на главную страницу обработки
         :return:
         """
+
         try:
             content = self.readContent(url_main)
             if len(content) == 0:
@@ -100,7 +104,7 @@ class ciap:
             elements = page_first.xpath("//li[@class='pager-last last']//a")
             if len(elements) > 0:
                 href = elements[0].attrib['href']
-                last = re.search(r"page=(\d+)&", href)
+                last = re.search(r"page=(\d+)&*", href)
                 return int(last.group(1))
             else:
                 return 1
@@ -202,6 +206,7 @@ class ciap:
         :param obj: Объект с описанием файла.
         :return:
         """
+
         try:
             with open(path.join(file), "w") as f:
                 f.write(obj.toJSON())
@@ -236,7 +241,8 @@ class ciap:
         maxPages = self.parseLast(self._link_parse.format("", date_0, date_1))
         Log.i("Количество страниц: {0} ...".format(maxPages))
 
-        for i in range(1, maxPages + 1):
+        self._items = {}
+        for i in range(0, maxPages):
             Log.i("********************************************************")
 
             page = ""
@@ -257,3 +263,75 @@ class ciap:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
+    def parseListSearchPage(self, url, folder):
+        content = self.readContent(url)
+        if len(content) == 0:
+            return {}
+        page_doc = html.document_fromstring(content)
+        infoBlock = page_doc.xpath("//div[@class='content clearfix']")[0].getchildren()
+        dict = {}
+        try:
+            for item in infoBlock:
+                key, value = item.getchildren()
+                key = re.search(r"(\D+):", key.text).group(1)
+                values = []
+                for v in item.getchildren()[1].getchildren():
+                    if len(v.getchildren()) == 0:
+                        values.append(v.text)
+                    else:
+                        child = v.getchildren()[0]
+                        if child.attrib.get('href'):
+                            values.append(child.attrib['href'])
+                        values.append(child.text)
+                dict[key] = values
+        except Exception as e:
+            self._errors = True
+            Log.e("Неудалось обработать информационный блок: {0}".format(e))
+        attachments_doc = page_doc.xpath("//table/tbody/tr")
+        attachments = []
+        try:
+            for attach in attachments_doc:
+                attach_childs = attach.getchildren()
+                for i in range(len(attach_childs)):
+                    if attach_childs[i].text != None:
+                        Log.i("Скачивается файл {0}: {1}".format(attach_childs[0][0][1].text,
+                                                                 attach_childs[0][0][1].attrib['href']))
+                        attachments.append(attach_childs[0][0][1].text)
+                        if Utils.DownloadFile(attach_childs[0][0][1].attrib['href'],
+                                              path.join(folder, "files")) == False:
+                            self._errors = True
+        except Exception as e:
+            self._errors = True
+            Log.e("Неудалось обработать блок вложений: {0}".format(e))
+        dict['attachments'] = attachments
+        return dict
+
+    def SearchDownloader(self, text):
+        searchFolder = path.join(self._folder, "search")
+        workFolder = path.join(searchFolder, text)
+        filesFolder = path.join(workFolder, "files")
+        if path.exists(filesFolder) == False:
+            os.makedirs(filesFolder)
+
+        start_time = time.time()
+
+        Log.i("Скачивается поисковый запрос: {0}".format(text))
+
+        self._items = {}
+        search = self._link_search.format(text)
+        maxPages = self.parseLast(search)
+        Log.i("Количество страниц: {0} ...".format(maxPages))
+        for i in range(0, maxPages):
+            Log.i("********************************************************")
+            page = "&page={0}".format(i)
+
+            Log.i("Обрабатывается поисковая страница {0}: {1}".format(i, search + page))
+            self.parseListPage(search + page, workFolder)
+
+        end_time = time.time()
+
+        if self._errors:
+            Log.w("Скачивание завершено с ошибками!")
+        else:
+            Log.i("Скачивание завершено.")
+        Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
