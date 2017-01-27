@@ -10,6 +10,8 @@ from core.log import Log
 import os.path as path
 import os
 import json
+import requests
+import time
 
 class document:
     def __init__(self, name, link, description, file):
@@ -55,11 +57,20 @@ class ciap:
             return res.read()
         except Exception as e:
             self._errors = True
-            Log.e("Ошибка получения содержимого страницы ({0}): {1}".format(url, str(e)))
+            Log.e("Ошибка получения содержимого страницы ({0}): {1}".format(url, e))
             return ""
 
     def downloadFile(self, url, folder):
-        pass
+        try:
+            filename = path.join(folder, url.split('/')[-1])
+            r = requests.get(url, stream=True)
+            with open(filename, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+        except Exception as e:
+            self._errors = True
+            Log.e("Ошибка скачивания файла {0} ({1}): {2}".format(url, folder, e))
 
     def parseLast(self, url_main):
         """
@@ -102,7 +113,7 @@ class ciap:
                 documents.append(doc)
             except Exception as e:
                 self._errors = True
-                Log.e("Неудалось обработать страницу: " + str(e))
+                Log.e("Неудалось обработать страницу: {0}".format(e))
 
         return documents
 
@@ -129,7 +140,7 @@ class ciap:
                 dict[key] = values
         except Exception as e:
             self._errors = True
-            Log.e("Неудалось обработать информационный блок: {0}".format(str(e)))
+            Log.e("Неудалось обработать информационный блок: {0}".format(e))
         attachments_doc = page_doc.xpath("//table/tbody/tr")
         attachments = []
         try:
@@ -143,7 +154,7 @@ class ciap:
                         self.downloadFile(attach_childs[0][0][1].attrib['href'], path.join(folder, "files"))
         except Exception as e:
             self._errors = True
-            Log.e("Неудалось обработать блок вложений: {0}".format(str(e)))
+            Log.e("Неудалось обработать блок вложений: {0}".format(e))
         dict['attachments'] = attachments
         return dict
 
@@ -154,7 +165,7 @@ class ciap:
                 f.close()
         except Exception as e:
             self._errors = True
-            Log.e("Ошибка записи файла {0}: {1}".format(file, str(e)))
+            Log.e("Ошибка записи файла {0}: {1}".format(file, e))
 
     def saveItems(self, folder):
         try:
@@ -163,7 +174,7 @@ class ciap:
                 f.close()
         except Exception as e:
             self._errors = True
-            Log.e("Ошибка записи элементов: {0}".format(str(e)))
+            Log.e("Ошибка записи элементов: {0}".format(e))
 
     def ParseYear(self, year):
         """
@@ -173,8 +184,11 @@ class ciap:
         """
 
         workFolder = path.join(self._folder, year)
-        if path.exists(workFolder) == False:
-            os.mkdir(workFolder)
+        filesFolder = path.join(workFolder, "files")
+        if path.exists(filesFolder) == False:
+            os.makedirs(filesFolder)
+
+        start_time = time.time()
 
         Log.i("Скачивается {0} год".format(year))
         date_format = "{0}-01-01"
@@ -191,7 +205,10 @@ class ciap:
         Log.i("Сохраняем список документов за год...")
         self.saveItems(workFolder)
 
+        end_time = time.time()
+
         if self._errors:
             Log.w("Скачивание завершено с ошибками!")
         else:
             Log.i("Скачивание завершено.")
+        Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
