@@ -3,5 +3,5 @@
 
 from cia_parser import ciap
 
-parser = ciap("")
+parser = ciap("data")
 parser.ParseYear("1995")

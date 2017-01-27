@@ -7,21 +7,41 @@ import lxml.html as html
 import urllib.request as request
 import re
 from core.log import Log
+import os.path as path
+import os
+import json
 
 class document:
-    def __init__(self, name, link, description):
+    def __init__(self, name, link, description, file):
         self.name = name
         self.link = link
         self.description = description
+        self.file = file
         self.info = {}
+
+    def toJSON(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 class ciap:
     _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
+    _folder = ""
+    _items = {}
+    _errors = False
 
     def __init__(self, folder):
         Log.init("log.xml")
+        Log.i("Парсер инициализирован.")
+        self._folder = folder
+        if path.exists(self._folder) == False:
+            os.mkdir(self._folder)
+        Log.i("Данных сохраняются в {0}".format(folder))
 
         pass
+
+    def validate(self, filename):
+        for c in r'[]/\;,><&*:%=+@!#^()|?^':
+            filename = filename.replace(c,'')
+        return filename
 
     def readContent(self, url):
         """
@@ -34,10 +54,11 @@ class ciap:
             res = opener.open(req)
             return res.read()
         except Exception as e:
+            self._errors = True
             Log.e("Ошибка получения содержимого страницы ({0}): {1}".format(url, str(e)))
             return ""
 
-    def downloadFile(self, url):
+    def downloadFile(self, url, folder):
         pass
 
     def parseLast(self, url_main):
@@ -54,7 +75,7 @@ class ciap:
         last = re.search(r"page=(\d+)&", href)
         return int(last.group(1))
 
-    def parseListPage(self, url):
+    def parseListPage(self, url, folder):
         content = self.readContent(url)
         if len(content) == 0:
             return []
@@ -71,16 +92,21 @@ class ciap:
                 name = hthree.text
                 description = div.getchildren()[0].text
 
-                doc = document(name, link, description)
+                doc = document(name, link, description, self.validate(name) + ".json")
                 Log.i("Обрабатывается документ {0}: {1}".format(name, link))
-                doc.info = self.parseDocPage(link)
+                doc.info = self.parseDocPage(link, folder)
+
+                self._items[name] = "{0}\n{1}\n{2}".format(description, link, doc.file)
+                self.saveDocInfo(path.join(folder, doc.file), doc)
+
                 documents.append(doc)
             except Exception as e:
+                self._errors = True
                 Log.e("Неудалось обработать страницу: " + str(e))
 
         return documents
 
-    def parseDocPage(self, url):
+    def parseDocPage(self, url, folder):
         content = self.readContent(url)
         if len(content) == 0:
             return {}
@@ -102,6 +128,7 @@ class ciap:
                         values.append(child.text)
                 dict[key] = values
         except Exception as e:
+            self._errors = True
             Log.e("Неудалось обработать информационный блок: {0}".format(str(e)))
         attachments_doc = page_doc.xpath("//table/tbody/tr")
         attachments = []
@@ -113,11 +140,30 @@ class ciap:
                         Log.i("Скачивается файл {0}: {1}".format(attach_childs[0][0][1].text,
                                                                  attach_childs[0][0][1].attrib['href']))
                         attachments.append(attach_childs[0][0][1].text)
-                        self.downloadFile(attach_childs[0][0][1].attrib['href'])
+                        self.downloadFile(attach_childs[0][0][1].attrib['href'], path.join(folder, "files"))
         except Exception as e:
+            self._errors = True
             Log.e("Неудалось обработать блок вложений: {0}".format(str(e)))
         dict['attachments'] = attachments
         return dict
+
+    def saveDocInfo(self, file, obj):
+        try:
+            with open(path.join(file), "w") as f:
+                f.write(obj.toJSON())
+                f.close()
+        except Exception as e:
+            self._errors = True
+            Log.e("Ошибка записи файла {0}: {1}".format(file, str(e)))
+
+    def saveItems(self, folder):
+        try:
+            with open(path.join(folder, "items.json"), "w") as f:
+                f.write(json.dumps(self._items, indent=4))
+                f.close()
+        except Exception as e:
+            self._errors = True
+            Log.e("Ошибка записи элементов: {0}".format(str(e)))
 
     def ParseYear(self, year):
         """
@@ -126,14 +172,26 @@ class ciap:
         :return:
         """
 
+        workFolder = path.join(self._folder, year)
+        if path.exists(workFolder) == False:
+            os.mkdir(workFolder)
+
         Log.i("Скачивается {0} год".format(year))
         date_format = "{0}-01-01"
         date_0 = datetime.strptime(date_format.format(year), "%Y-01-01").date()
         date_1 = date_0 + relativedelta(years=1)
         maxPages = self.parseLast(self._link_parse.format("", date_0, date_1))
         Log.i("Количество страниц: {0} ...".format(maxPages))
+
         for i in range(1, maxPages + 1):
             Log.i("********************************************************")
             Log.i("Обрабатывается страница {0}: {1}".format(i, self._link_parse.format("page=" + str(i) + "&", date_0, date_1)))
-            self.parseListPage(self._link_parse.format("page=" + str(i) + "&", date_0, date_1))
-        Log.i("Скачивание завершено.")
+            self.parseListPage(self._link_parse.format("page=" + str(i) + "&", date_0, date_1), workFolder)
+
+        Log.i("Сохраняем список документов за год...")
+        self.saveItems(workFolder)
+
+        if self._errors:
+            Log.w("Скачивание завершено с ошибками!")
+        else:
+            Log.i("Скачивание завершено.")
