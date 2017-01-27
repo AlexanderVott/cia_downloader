@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
 from datetime import datetime
@@ -182,6 +182,10 @@ class ciap:
         :param date: дата которую надо разобрать из архива
         :return:
         """
+
+        if year == "0":
+            Log.e("Параметры выборки по году заданы некорректно!")
+            return
 
         workFolder = path.join(self._folder, year)
         filesFolder = path.join(workFolder, "files")
