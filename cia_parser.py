@@ -27,6 +27,7 @@ class document:
 class ciap:
     _link_list = "https://www.cia.gov/library/readingroom/search/site/"
     _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_pub_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
+    _link_search = "https://www.cia.gov/library/readingroom/advanced-search-view?keyword={0}&im_field_collection[]=&label={1}&sm_field_document_number={2}&sm_field_original_classification={3}&dm_field_pub_date_op={4}%3D&dm_field_pub_date[value]={5}&dm_field_pub_date[min]=&dm_field_pub_date[max]=&sm_field_content_type={6}&sm_field_case_number={7}"
     #_link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
     _folder = ""
     _items = {}
@@ -47,7 +48,7 @@ class ciap:
 
     def readContent(self, url):
         """
-            Метод читает содержимое страницы по ссылке.
+        Метод читает содержимое страницы по ссылке.
         :rtype: str
         """
         try:
@@ -60,8 +61,34 @@ class ciap:
             Log.e("Ошибка получения содержимого страницы ({0}): {1}".format(url, e))
             return ""
 
+    def ParseYearsList(self):
+        """
+            Выводит на экран и записывает в файл список дат публикаций.
+        :return: Список дат публикаций.
+        """
+        try:
+            Log.i("Получение списка дат публикаций...")
+            content = self.readContent(self._link_list)
+            if len(content) == 0:
+                return 0
+            page_first = html.document_fromstring(content)
+            list = []
+            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-dm-field-pub-date']")
+            count = 1
+            print(" № | год (количество документов)")
+            for element in elements[0].getchildren():
+                list.append(element[0].text)
+                print("{:3.0f}. ".format(count) + element[0].text)
+                count += 1
+            Utils.ToJson(list, path.join(self._folder, "publication_dates.json"))
+            return list
+        except Exception as e:
+            Log.e("Ошибка получения списка дат публикаций: {0}".format(e))
+            return []
+
     def parseLast(self, url_main):
         """
+        Получает номер последней страницы.
         :param url_main: ссылка на главную страницу обработки
         :return:
         """
@@ -82,6 +109,13 @@ class ciap:
             return 0
 
     def parseListPage(self, url, folder):
+        """
+        Производит разбор поисковой страницы со списком документов.
+        :param url: Ссылка на страницу.
+        :param folder: Директория в которую необходимо сохранят результаты разбора.
+        :return: Возвращает массив документов с текстовым описанием.
+        """
+
         content = self.readContent(url)
         if len(content) == 0:
             return []
@@ -113,6 +147,13 @@ class ciap:
         return documents
 
     def parseDocPage(self, url, folder):
+        """
+        Производит разбор страницы отдельного документа.
+        :param url: Ссылка на отдельный документ.
+        :param folder: Директория, в которую необходимо сохранять результат разбора страницы.
+        :return: Возвращает текстовую информацию (описание) документа.
+        """
+
         content = self.readContent(url)
         if len(content) == 0:
             return {}
@@ -155,6 +196,12 @@ class ciap:
         return dict
 
     def saveDocInfo(self, file, obj):
+        """
+        Производит сохранения описания документа в файл.
+        :param file: Имя файла и путь до него.
+        :param obj: Объект с описанием файла.
+        :return:
+        """
         try:
             with open(path.join(file), "w") as f:
                 f.write(obj.toJSON())
@@ -165,8 +212,8 @@ class ciap:
 
     def ParsePublicatonYear(self, year):
         """
-
-        :param date: дата которую надо разобрать из архива
+        Производит разбор документов по указанному году публикации.
+        :param year: Год публикации
         :return:
         """
 
@@ -210,20 +257,3 @@ class ciap:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
-    def ParseYearsList(self):
-        try:
-            Log.i("Получение списка дат публикаций...")
-            content = self.readContent(self._link_list)
-            if len(content) == 0:
-                return 0
-            page_first = html.document_fromstring(content)
-            list = []
-            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-dm-field-pub-date']")
-            for element in elements[0].getchildren():
-                list.append(element[0].text)
-                print(element[0].text)
-            Utils.ToJson(list, path.join(self._folder, "publication_dates.json"))
-            return list
-        except Exception as e:
-            Log.e("Ошибка получения списка дат публикаций: {0}".format(e))
-            return []
