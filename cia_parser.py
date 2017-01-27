@@ -7,10 +7,10 @@ import lxml.html as html
 import urllib.request as request
 import re
 from core.log import Log
+from core.utils import Utils
 import os.path as path
 import os
 import json
-import requests
 import time
 
 class document:
@@ -30,20 +30,18 @@ class ciap:
     _items = {}
     _errors = False
 
-    def __init__(self, folder):
-        Log.init("log.xml")
+    def __init__(self, folder, logfile = None):
+        if logfile == None:
+            print("Лог файл: log.xml")
+            Log.init("log.xml")
+        else:
+            print("Лог файл: " + Utils.ValidateFileName(logfile))
+            Log.init(Utils.ValidateFileName(logfile))
         Log.i("Парсер инициализирован.")
         self._folder = folder
         if path.exists(self._folder) == False:
             os.mkdir(self._folder)
         Log.i("Данных сохраняются в {0}".format(folder))
-
-        pass
-
-    def validate(self, filename):
-        for c in r'[]/\;,><&*:%=+@!#^()|?^':
-            filename = filename.replace(c,'')
-        return filename
 
     def readContent(self, url):
         """
@@ -60,31 +58,26 @@ class ciap:
             Log.e("Ошибка получения содержимого страницы ({0}): {1}".format(url, e))
             return ""
 
-    def downloadFile(self, url, folder):
-        try:
-            filename = path.join(folder, url.split('/')[-1])
-            r = requests.get(url, stream=True)
-            with open(filename, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=1024):
-                    if chunk:
-                        f.write(chunk)
-        except Exception as e:
-            self._errors = True
-            Log.e("Ошибка скачивания файла {0} ({1}): {2}".format(url, folder, e))
-
     def parseLast(self, url_main):
         """
         :param url_main: ссылка на главную страницу обработки
         :return:
         """
-        # TODO: в дальнейшем необходимо главной ссылкой считать ссылку на сам архив, а не на его отдельный раздел
-        content = self.readContent(url_main)
-        if len(content) == 0:
+        try:
+            content = self.readContent(url_main)
+            if len(content) == 0:
+                return 0
+            page_first = html.document_fromstring(content)
+            elements = page_first.xpath("//li[@class='pager-last last']//a")
+            if len(elements) > 0:
+                href = elements[0].attrib['href']
+                last = re.search(r"page=(\d+)&", href)
+                return int(last.group(1))
+            else:
+                return 1
+        except Exception as e:
+            Log.e("Ошибка получения количества страниц {0}: {1}".format(url_main, e))
             return 0
-        page_first = html.document_fromstring(content)
-        href = page_first.xpath("//li[@class='pager-last last']//a")[0].attrib['href']
-        last = re.search(r"page=(\d+)&", href)
-        return int(last.group(1))
 
     def parseListPage(self, url, folder):
         content = self.readContent(url)
@@ -103,7 +96,7 @@ class ciap:
                 name = hthree.text
                 description = div.getchildren()[0].text
 
-                doc = document(name, link, description, self.validate(name) + ".json")
+                doc = document(name, link, description, Utils.ValidateFileName(name) + ".json")
                 Log.i("Обрабатывается документ {0}: {1}".format(name, link))
                 doc.info = self.parseDocPage(link, folder)
 
@@ -151,7 +144,8 @@ class ciap:
                         Log.i("Скачивается файл {0}: {1}".format(attach_childs[0][0][1].text,
                                                                  attach_childs[0][0][1].attrib['href']))
                         attachments.append(attach_childs[0][0][1].text)
-                        self.downloadFile(attach_childs[0][0][1].attrib['href'], path.join(folder, "files"))
+                        if Utils.DownloadFile(attach_childs[0][0][1].attrib['href'], path.join(folder, "files")) == False:
+                            self._errors = True
         except Exception as e:
             self._errors = True
             Log.e("Неудалось обработать блок вложений: {0}".format(e))
@@ -166,15 +160,6 @@ class ciap:
         except Exception as e:
             self._errors = True
             Log.e("Ошибка записи файла {0}: {1}".format(file, e))
-
-    def saveItems(self, folder):
-        try:
-            with open(path.join(folder, "items.json"), "w") as f:
-                f.write(json.dumps(self._items, indent=4))
-                f.close()
-        except Exception as e:
-            self._errors = True
-            Log.e("Ошибка записи элементов: {0}".format(e))
 
     def ParseYear(self, year):
         """
@@ -203,11 +188,16 @@ class ciap:
 
         for i in range(1, maxPages + 1):
             Log.i("********************************************************")
-            Log.i("Обрабатывается страница {0}: {1}".format(i, self._link_parse.format("page=" + str(i) + "&", date_0, date_1)))
-            self.parseListPage(self._link_parse.format("page=" + str(i) + "&", date_0, date_1), workFolder)
+
+            page = ""
+            if (maxPages > 1):
+                page = "page=" + str(i) + "&"
+
+            Log.i("Обрабатывается страница {0}: {1}".format(i, self._link_parse.format(page, date_0, date_1)))
+            self.parseListPage(self._link_parse.format(page, date_0, date_1), workFolder)
 
         Log.i("Сохраняем список документов за год...")
-        self.saveItems(workFolder)
+        Utils.ToJson(self._items, path.join(self._folder, year + ".json"))
 
         end_time = time.time()
 
