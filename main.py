@@ -1,4 +1,7 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 from cia_parser import ciap
 
-parser = ciap()
-parser.Parse("1995")
+parser = ciap("")
+parser.ParseYear("1995")
