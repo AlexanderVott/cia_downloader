@@ -25,20 +25,23 @@ if sys.argv[1] in ["-help", "-h", "/h"]:
 
 params = {}
 for param in sys.argv[1:]:
-    matches = re.findall(r"-(\w+[^=])=[\'\"]*(.*[^\'\"])", param)
+    matches = re.findall(r"-(\w+[^=])=*[\'\"]*(.*[^\'\"])*", param)
     if len(matches) > 0:
         matches = matches[0]
     else:
         continue
-    params[matches[0]] = matches[1]
+    if len(matches) > 1:
+        params[matches[0]] = matches[1]
+    else:
+        params[matches[0]] = ""
 
 if params.get("folder") == None:
     params["folder"] = "data"
 parser = ciap(params["folder"], params.get("logfile"))
 
-if params.get("-publist") != None:
+if params.get("publist") != None:
     parser.ParseYearsList()
-
-if params.get("pubyear") == None:
-    params["pubyear"] = "0"
-parser.ParsePublicatonYear(params["pubyear"])
+else:
+    if params.get("pubyear") == None:
+        params["pubyear"] = "0"
+    parser.ParsePublicatonYear(params["pubyear"])

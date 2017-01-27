@@ -174,7 +174,8 @@ class ciap:
             Log.e("Параметры выборки по году заданы некорректно!")
             return
 
-        workFolder = path.join(self._folder, year)
+        pubFolder = path.join(self._folder, "pub")
+        workFolder = path.join(pubFolder, year)
         filesFolder = path.join(workFolder, "files")
         if path.exists(filesFolder) == False:
             os.makedirs(filesFolder)
@@ -199,7 +200,7 @@ class ciap:
             self.parseListPage(self._link_parse.format(page, date_0, date_1), workFolder)
 
         Log.i("Сохраняем список документов за год...")
-        Utils.ToJson(self._items, path.join(self._folder, year + ".json"))
+        Utils.ToJson(self._items, path.join(pubFolder, year + ".json"))
 
         end_time = time.time()
 
