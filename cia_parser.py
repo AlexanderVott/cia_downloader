@@ -25,7 +25,9 @@ class document:
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 class ciap:
-    _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
+    _link_list = "https://www.cia.gov/library/readingroom/search/site/"
+    _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_pub_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
+    #_link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
     _folder = ""
     _items = {}
     _errors = False
@@ -161,7 +163,7 @@ class ciap:
             self._errors = True
             Log.e("Ошибка записи файла {0}: {1}".format(file, e))
 
-    def ParseYear(self, year):
+    def ParsePublicatonYear(self, year):
         """
 
         :param date: дата которую надо разобрать из архива
@@ -206,3 +208,21 @@ class ciap:
         else:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
+
+    def ParseYearsList(self):
+        try:
+            Log.i("Получение списка дат публикаций...")
+            content = self.readContent(self._link_list)
+            if len(content) == 0:
+                return 0
+            page_first = html.document_fromstring(content)
+            list = []
+            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-dm-field-pub-date']")
+            for element in elements[0].getchildren():
+                list.append(element[0].text)
+                print(element[0].text)
+            Utils.ToJson(list, path.join(self._folder, "publication_dates.json"))
+            return list
+        except Exception as e:
+            Log.e("Ошибка получения списка дат публикаций: {0}".format(e))
+            return []

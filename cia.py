@@ -9,7 +9,8 @@ from cia_parser import ciap
 
 def printHelp():
     print("Параметры запуска скрипта " + os.path.basename(__file__) + ":\n"
-            "-year= - параметр сохранения файлов за конкретный год;\n"
+            "-publist= - параметр вывода списка дат публикаций;\n"
+            "-pubyear= - параметр сохранения файлов за конкретный год публикации;\n"
             "-folder= - опциональный параметр, указывающий директорию, в которую необходимо сохранять данные;\n"
             "-h, -help= - вызов справки."
             "Например: python " + os.path.basename(__file__) + " -year=1937 -folder='/home/user/data_cia/'\n"
@@ -35,9 +36,9 @@ if params.get("folder") == None:
     params["folder"] = "data"
 parser = ciap(params["folder"], params.get("logfile"))
 
-if (params.get("-yearslist") != None):
+if params.get("-publist") != None:
     parser.ParseYearsList()
 
-if params.get("year") == None:
-    params["year"] = "0"
-parser.ParseYear(params["year"])
+if params.get("pubyear") == None:
+    params["pubyear"] = "0"
+parser.ParsePublicatonYear(params["pubyear"])
