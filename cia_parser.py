@@ -68,7 +68,7 @@ class ciap:
 
     def ParseYearsList(self):
         """
-            Выводит на экран и записывает в файл список дат публикаций.
+        Выводит на экран и записывает в файл список дат публикаций.
         :return: Список дат публикаций.
         """
 
@@ -225,8 +225,8 @@ class ciap:
         :return:
         """
 
-        if year == "0":
-            Log.e("Параметры выборки по году заданы некорректно!")
+        if year == None:
+            Log.e("Год выборки неопределён!")
             return
 
         pubFolder = path.join(self._folder, "pub")
@@ -267,6 +267,11 @@ class ciap:
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
     def SearchDownloader(self, text):
+        """
+        Производит скачивание по поисковому запросу.
+        :param text: Поисковый запрос
+        :return:
+        """
         searchFolder = path.join(self._folder, "search")
         workFolder = path.join(searchFolder, text)
         filesFolder = path.join(workFolder, "files")
@@ -297,6 +302,11 @@ class ciap:
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
     def ParseCollections(self, saveToFile = True):
+        """
+        Выводит на экран и записывает в файл список сборников.
+        :param saveToFile:
+        :return:
+        """
         try:
             Log.i("Получение списка сборников...")
             content = self.readContent(self._links["main"])
@@ -319,6 +329,15 @@ class ciap:
             return {}
 
     def ParseCollectionById(self, id):
+        """
+        Производит разбор документов по указанному идентификатору сборника.
+        :param id: Идентификатор сборника.
+        :return:
+        """
+
+        if id == None:
+            Log.e("Идентификатор сборника не определён!")
+            return
 
         dictCollections = self.ParseCollections(False)
         if dictCollections.get(id) == None:
