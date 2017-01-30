@@ -6,4 +6,5 @@ from cia_parser import ciap
 parser = ciap("data")
 #parser.ParsePublicatonYear("1995")
 #parser.ParseYearsList()
-parser.SearchDownloader("miass")
+#parser.SearchDownloader("miass")
+parser.ParseCollections()

@@ -4,13 +4,16 @@
 import os
 import sys
 import re
+from core.log import Log
 from cia_parser import ciap
 
 
 def printHelp():
     print("Параметры запуска скрипта " + os.path.basename(__file__) + ":\n"
-            "-publist= - параметр вывода списка дат публикаций;\n"
+            "-publist - параметр вывода списка дат публикаций;\n"
             "-pubyear= - параметр сохранения файлов за конкретный год публикации;\n"
+            "-collections - параметр вывода списка сборников публикаций;\n"
+            "-collection= - параметр сохранения файлов конкретной коллекции, принимает Id из списка коллекций;\n"
             "-search= - параметр указывает, по какому поисковому запросу загружать документы;\n"
             "-folder= - опциональный параметр, указывающий директорию, в которую необходимо сохранять данные;\n"
             "-h, -help= - вызов справки."
@@ -40,12 +43,20 @@ if params.get("folder") == None:
     params["folder"] = "data"
 parser = ciap(params["folder"], params.get("logfile"))
 
-if params.get("search") != None:
-    parser.SearchDownloader(params["search"])
-else:
-    if params.get("publist") != None:
-        parser.ParseYearsList()
-    else:
-        if params.get("pubyear") == None:
-            params["pubyear"] = "0"
-        parser.ParsePublicatonYear(params["pubyear"])
+methods = {
+    "search": parser.SearchDownloader,
+    "publist": parser.ParseYearsList,
+    "pubyear": parser.ParsePublicatonYear,
+    "collections": parser.ParseCollections,
+    "collection": ()
+}
+
+for key in params.keys():
+    try:
+        if methods.get(key) != None:
+            if params.get(key) == "":
+                methods[key]()
+            else:
+                methods[key](params.get(key))
+    except:
+        Log.e("Ошибка выполнения, не задано значение параметра!")

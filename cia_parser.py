@@ -78,7 +78,7 @@ class ciap:
             list = []
             elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-dm-field-pub-date']")
             count = 1
-            print(" № | год (количество документов)")
+            print("{:>3}| Год (количество документов)".format("№"))
             for element in elements[0].getchildren():
                 list.append(element[0].text)
                 print("{:3.0f}. ".format(count) + element[0].text)
@@ -263,49 +263,6 @@ class ciap:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
-    def parseListSearchPage(self, url, folder):
-        content = self.readContent(url)
-        if len(content) == 0:
-            return {}
-        page_doc = html.document_fromstring(content)
-        infoBlock = page_doc.xpath("//div[@class='content clearfix']")[0].getchildren()
-        dict = {}
-        try:
-            for item in infoBlock:
-                key, value = item.getchildren()
-                key = re.search(r"(\D+):", key.text).group(1)
-                values = []
-                for v in item.getchildren()[1].getchildren():
-                    if len(v.getchildren()) == 0:
-                        values.append(v.text)
-                    else:
-                        child = v.getchildren()[0]
-                        if child.attrib.get('href'):
-                            values.append(child.attrib['href'])
-                        values.append(child.text)
-                dict[key] = values
-        except Exception as e:
-            self._errors = True
-            Log.e("Неудалось обработать информационный блок: {0}".format(e))
-        attachments_doc = page_doc.xpath("//table/tbody/tr")
-        attachments = []
-        try:
-            for attach in attachments_doc:
-                attach_childs = attach.getchildren()
-                for i in range(len(attach_childs)):
-                    if attach_childs[i].text != None:
-                        Log.i("Скачивается файл {0}: {1}".format(attach_childs[0][0][1].text,
-                                                                 attach_childs[0][0][1].attrib['href']))
-                        attachments.append(attach_childs[0][0][1].text)
-                        if Utils.DownloadFile(attach_childs[0][0][1].attrib['href'],
-                                              path.join(folder, "files")) == False:
-                            self._errors = True
-        except Exception as e:
-            self._errors = True
-            Log.e("Неудалось обработать блок вложений: {0}".format(e))
-        dict['attachments'] = attachments
-        return dict
-
     def SearchDownloader(self, text):
         searchFolder = path.join(self._folder, "search")
         workFolder = path.join(searchFolder, text)
@@ -335,3 +292,25 @@ class ciap:
         else:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
+
+    def ParseCollections(self):
+        try:
+            Log.i("Получение списка сборников...")
+            content = self.readContent(self._link_list)
+            if len(content) == 0:
+                return 0
+            page_first = html.document_fromstring(content)
+            dict = {}
+            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-im-field-collection']")
+            count = 1
+            print("{:>3}| {:^5} | Название (количество документов)".format("№", "Id"))
+            for element in elements[0].getchildren():
+                linkId = re.search(r"im_field_collection...(\d+)", element[0].attrib['href'])
+                dict[linkId.group(1)] = element[0].text
+                print("{:3.0f}. {:>7} ".format(count, linkId.group(1)) + element[0].text)
+                count += 1
+            Utils.ToJson(dict, path.join(self._folder, "publications_collections.json"))
+            return dict
+        except Exception as e:
+            Log.e("Ошибка получения списка сборников: {0}".format(e))
+            return {}
