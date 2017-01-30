@@ -25,11 +25,14 @@ class document:
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
 class ciap:
-    _link_list = "https://www.cia.gov/library/readingroom/search/site/"
-    _link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_pub_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
-    _link_search = "https://www.cia.gov/library/readingroom/search/site/{0}"
-    _link_advanced_search = "https://www.cia.gov/library/readingroom/advanced-search-view?keyword={0}&im_field_collection[]=&label={1}&sm_field_document_number={2}&sm_field_original_classification={3}&dm_field_pub_date_op={4}%3D&dm_field_pub_date[value]={5}&dm_field_pub_date[min]=&dm_field_pub_date[max]=&sm_field_content_type={6}&sm_field_case_number={7}"
-    #_link_parse = "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_release_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]"
+    _links = {
+        "main": "https://www.cia.gov/library/readingroom/search/site/",
+        "pubdate": "https://www.cia.gov/library/readingroom/search/site/?{0}f[0]=dm_field_pub_date%3A[{1}T00%3A00%3A00Z%20TO%20{2}T00%3A00%3A00Z]",
+        "search": "https://www.cia.gov/library/readingroom/search/site/{0}",
+        "advanced_search": "https://www.cia.gov/library/readingroom/advanced-search-view?keyword={0}&im_field_collection[]=&label={1}&sm_field_document_number={2}&sm_field_original_classification={3}&dm_field_pub_date_op={4}%3D&dm_field_pub_date[value]={5}&dm_field_pub_date[min]=&dm_field_pub_date[max]=&sm_field_content_type={6}&sm_field_case_number={7}",
+        "collection": "https://www.cia.gov/library/readingroom/search/site/?f[0]={0}im_field_collection%3A{1}"
+    }
+
     _folder = ""
     _items = {}
     _errors = False
@@ -71,7 +74,7 @@ class ciap:
 
         try:
             Log.i("Получение списка дат публикаций...")
-            content = self.readContent(self._link_list)
+            content = self.readContent(self._links["main"])
             if len(content) == 0:
                 return 0
             page_first = html.document_fromstring(content)
@@ -238,7 +241,7 @@ class ciap:
         date_format = "{0}-01-01"
         date_0 = datetime.strptime(date_format.format(year), "%Y-01-01").date()
         date_1 = date_0 + relativedelta(years=1)
-        maxPages = self.parseLast(self._link_parse.format("", date_0, date_1))
+        maxPages = self.parseLast(self._links["pubdate"].format("", date_0, date_1))
         Log.i("Количество страниц: {0} ...".format(maxPages))
 
         self._items = {}
@@ -249,8 +252,8 @@ class ciap:
             if (maxPages > 1):
                 page = "page=" + str(i) + "&"
 
-            Log.i("Обрабатывается страница {0}: {1}".format(i, self._link_parse.format(page, date_0, date_1)))
-            self.parseListPage(self._link_parse.format(page, date_0, date_1), workFolder)
+            Log.i("Обрабатывается страница {0}: {1}".format(i, self._links["pubdate"].format(page, date_0, date_1)))
+            self.parseListPage(self._links["pubdate"].format(page, date_0, date_1), workFolder)
 
         Log.i("Сохраняем список документов за год...")
         Utils.ToJson(self._items, path.join(pubFolder, year + ".json"))
@@ -275,7 +278,7 @@ class ciap:
         Log.i("Скачивается поисковый запрос: {0}".format(text))
 
         self._items = {}
-        search = self._link_search.format(text)
+        search = self._links["search"].format(text)
         maxPages = self.parseLast(search)
         Log.i("Количество страниц: {0} ...".format(maxPages))
         for i in range(0, maxPages):
@@ -293,10 +296,10 @@ class ciap:
             Log.i("Скачивание завершено.")
         Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))
 
-    def ParseCollections(self):
+    def ParseCollections(self, saveToFile = True):
         try:
             Log.i("Получение списка сборников...")
-            content = self.readContent(self._link_list)
+            content = self.readContent(self._links["main"])
             if len(content) == 0:
                 return 0
             page_first = html.document_fromstring(content)
@@ -314,3 +317,44 @@ class ciap:
         except Exception as e:
             Log.e("Ошибка получения списка сборников: {0}".format(e))
             return {}
+
+    def ParseCollectionById(self, id):
+
+        dictCollections = self.ParseCollections(False)
+        if dictCollections.get(id) == None:
+            Log.e("Сборник с таким идентификатором отсутствует: {0}".format(id))
+            return
+
+        pubFolder = path.join(self._folder, "collections")
+        workFolder = path.join(pubFolder, dictCollections[id])
+        filesFolder = path.join(workFolder, "files")
+        if path.exists(filesFolder) == False:
+            os.makedirs(filesFolder)
+
+        start_time = time.time()
+
+        Log.i("Скачивается коллекция {0}. Id: {1}".format(dictCollections[id], id))
+        maxPages = self.parseLast(self._links["collection"].format("", id))
+        Log.i("Количество страниц: {0} ...".format(maxPages))
+
+        self._items = {}
+        for i in range(0, maxPages):
+            Log.i("********************************************************")
+
+            page = ""
+            if (maxPages > 1):
+                page = "page=" + str(i) + "&"
+
+            Log.i("Обрабатывается страница {0}: {1}".format(i, self._links["collection"].format(page, id)))
+            self.parseListPage(self._links["collection"].format(page, id), workFolder)
+
+        Log.i("Сохраняем список документов за год...")
+        Utils.ToJson(self._items, path.join(pubFolder, Utils.ValidateFileName("{0}_id_{1}.json".format(dictCollections[id], id))))
+
+        end_time = time.time()
+
+        if self._errors:
+            Log.w("Скачивание завершено с ошибками!")
+        else:
+            Log.i("Скачивание завершено.")
+        Log.i("Времени затрачено: {:.3f} секунд".format(end_time - start_time))

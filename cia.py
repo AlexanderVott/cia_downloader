@@ -48,7 +48,7 @@ methods = {
     "publist": parser.ParseYearsList,
     "pubyear": parser.ParsePublicatonYear,
     "collections": parser.ParseCollections,
-    "collection": ()
+    "collection": parser.ParseCollectionById
 }
 
 for key in params.keys():
