@@ -39,7 +39,7 @@ for param in sys.argv[1:]:
     else:
         params[matches[0]] = ""
 
-if params.get("folder") == None:
+if params.get("folder") is None:
     params["folder"] = "data"
 parser = ciap(params["folder"], params.get("logfile"))
 
@@ -53,10 +53,10 @@ methods = {
 
 for key in params.keys():
     try:
-        if methods.get(key) != None:
+        if methods.get(key) is not None:
             if params.get(key) == "":
                 methods[key]()
             else:
                 methods[key](params.get(key))
-    except:
-        Log.e("Ошибка выполнения, не задано значение параметра!")
+    except Exception as e:
+        Log.e("Ошибка выполнения, не задано значение параметра: " + str(e))

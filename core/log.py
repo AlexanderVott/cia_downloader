@@ -4,18 +4,29 @@ import time
 
 __author__ = 'AlexanderVott'
 
-# Класс вывода сообщений в лог-файл и консоль
+
 class Log:
+    """
+    Класс вывода сообщений в файл-журнала и консоль.
+    """
+
     filename = ""
     file = None
 
-    # Инициализация экземпляра класса.
     def __init__(self, filename):
+        """
+        Инициализация экземпляра класса.
+        :param filename: путь до файла в который будет производиться запись сообщений журнала.
+        """
         Log.init(filename)
 
-    # Инициализация статичного класса.
     @staticmethod
     def init(filename):
+        """
+        Инициализация статичного класса журнала.
+        :param filename: путь до файла в который будет производиться запись сообщений журнала.
+        :return: 
+        """
         import codecs
         if len(filename) == 0 and os.path.exists(filename):
             return
@@ -24,17 +35,25 @@ class Log:
         Log.file.write("<log>\n")
         Log.file.flush()
 
-    # Правильное закрытие лог-файла.
     @staticmethod
     def close():
+        """
+        Правильное закрытие файла-журнала.
+        :return: 
+        """
         Log.file.write("</log>")
         Log.file.flush()
         Log.file.close()
 
-    # Базовый метод вывода сообщения.
-    # Параметры: тип сообщения, текст сообщения и параметр вывода в консоль
     @staticmethod
     def msg(type, msg, console = True):
+        """
+        Базовый метод вывода сообщений.
+        :param type: тип сообщения.
+        :param msg: текст сообщения.
+        :param console: указывает необходимо ли выводить данные в консоль. По умолчанию true.
+        :return: 
+        """
         _type = {
             'i': u"Info",
             "w": u"Warning",
@@ -58,26 +77,42 @@ class Log:
         if console:
             print(u"[{0}][{1}] {2}".format(type, timeValue, umsg))
 
-    # Вывод информационного сообщения.
-    # Параметры: текст сообщения, параметр вывода в консоль.
     @staticmethod
     def i(msg, console = True):
+        """
+        Вывод информационного сообщения.
+        :param msg: текст сообщения.
+        :param console: указывает необходимо ли выводить данные в консоль. По умолчанию true.
+        :return: 
+        """
         Log.msg("i", msg, console)
 
-    # Вывод предостерегающего сообщения.
-    # Параметры: текст сообщения, параметр вывода в консоль.
     @staticmethod
     def w(msg, console = True):
+        """
+        Вывод предостерегающего сообщения.
+        :param msg: текст сообщения.
+        :param console: указывает необходимо ли выводить данные в консоль. По умолчанию true. 
+        :return: 
+        """
         Log.msg("w", msg, console)
 
-    # Вывод сообщения об ошибке.
-    # Параметры: текст сообщения, параметр вывода в консоль.
     @staticmethod
     def e(msg, console = True):
+        """
+        Вывод сообщения об ошибке.
+        :param msg: текст сообщения.
+        :param console: указывает необходимо ли выводить данные в консоль. По умолчанию true. 
+        :return: 
+        """
         Log.msg("e", msg, console)
 
-    # Вывод сообщения отладки.
-    # Параметры: текст сообщения, параметр вывода в консоль.
     @staticmethod
     def d(msg, console = True):
+        """
+        Вывод сообщения отладки.
+        :param msg: текст сообщения.
+        :param console: указывает необходимо ли выводить данные в консоль. По умолчанию true. 
+        :return: 
+        """
         Log.msg("d", msg, console)
