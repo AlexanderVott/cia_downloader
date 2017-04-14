@@ -79,7 +79,7 @@ class ciap:
                 return 0
             page_first = html.document_fromstring(content)
             list = []
-            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-dm-field-pub-date']")
+            elements = page_first.xpath("//ul[@id='facetapi-facet-apachesolrsolr-block-ds-field-pub-date']")
             count = 1
             print("{:>3}| Год (количество документов)".format("№"))
             for element in elements[0].getchildren():
